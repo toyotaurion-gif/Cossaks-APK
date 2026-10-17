@@ -1,24 +1,60 @@
-# Cossacks 1.52 — Android Client (community project)
+# ⚔ Казаки 1.52 для Android — автоустановщик
 
-GitHub-ready source package reconstructed from the project archives saved on 11 Oct 2026.
+**Один APK вместо множества файлов.** Установите приложение на телефон, откройте его — и оно само скачает *«Казаки: Снова война» (Cossacks: Back to War 1.52)*, распакует игровые данные, добавит наше управление для сенсорного экрана и запустит игру.
 
-- **Android client:** v0.9.2 source, Android Studio / Gradle
-- **Bundled Web UI:** v0.8.4, with visible double-tap `DEL ×2` confirmation (550 ms window)
-- **Java package:** `com.cossacks.mobile`
-- **CI:** `.github/workflows/build-apk.yml` (manual or push-triggered debug APK build)
+> **Статус: тестовая версия исходного кода.** Проект загружается и собирается отдельно. Работа APK на реальном Android, звук, WebAssembly, WebGL и сохранения ещё не подтверждены. Репозиторий содержит установщик, **не сами игровые ресурсы**.
 
-This repository contains the custom Android wrapper and web interface; **it does not contain the proprietary game resources**, including `dmcr.wasm` / `dmcr.js`, required for gameplay. The Android client is designed to download/import a separate full web game archive.
+## Как это должно работать для игрока
 
-## Build
+1. Скачайте **единственный файл `Cossacks152-AutoInstaller.apk`** из раздела [Releases](https://github.com/toyotaurion-gif/Cossaks-APK/releases), когда опубликована успешная сборка. Пока релиза нет, это только инструкция к будущей сборке.
+2. Разрешите установку APK из выбранного браузера или файлового менеджера и установите приложение.
+3. Запустите **«Казаки 1.52»**. Начнётся загрузка веб-версии 1.52 с сервера, указанного в [проекте автора порта](https://github.com/MisterCoderman/cossacks-1.52-platform).
+4. Дождитесь распаковки. Приложение **само установит** встроенный `dmcr.html` с сенсорным управлением и откроет игру.
+5. Играйте в одиночном режиме. После первой установки игровые данные повторно скачивать не нужно.
 
-Open the root directory in Android Studio and use **Build > Build APK(s)**. Alternatively run the GitHub Actions workflow **Build Android APK** after pushing these files. The generated APK will be a debug build, not a production release.
+**Не нужны:** компьютер, GitHub, Codespaces, Winlator, ручной ZIP, выбор папки, самостоятельная замена `dmcr.html`.
 
-**Status:** untested in this environment; installation, WebView, audio, and game resources must be tested on Android. For details, see [README_RU.md](README_RU.md).
+**Первый запуск:** скачивается приблизительно 724 МБ, после распаковки потребуется значительно больше места; рекомендуем Wi-Fi и 3–4 ГБ свободной памяти. Не закрывайте установщик до завершения. Если сеть оборвалась, появится **«Повторить загрузку»**; докачка используется там, где её поддерживает сервер. Для аварийного восстановления предусмотрен необязательный ручной импорт ZIP.
 
-## Folders
+## Управление
 
-- `app/` — Android application and embedded `dmcr.html`
-- `web-ui/` — standalone update package source v0.8.4
-- `.github/workflows/` — CI build workflow
+- Сенсорный курсор и выделение войск — адаптированы для телефона.
+- `MRB` — правая кнопка мыши; `CTRL` — модификатор; `ESC` — отмена; `⌨` — экранная клавиатура.
+- `DEL ×2` — удаление только после двух быстрых нажатий, защита от случайного нажатия.
+- Боковая панель: скорость Slow/Fast, масштаб интерфейса, видимость/размер кнопок и другие параметры.
 
-Based on the community port: https://github.com/MisterCoderman/cossacks-1.52-platform
+Это описание планируемой функциональности. Корректность всех жестов на разных Android-устройствах ещё требует испытаний.
+
+## Что умеет сам установщик
+
+- Скачать исходный веб-архив 1.52 по HTTPS из **внешнего источника**, без упаковки игровых файлов в APK.
+- Проверить содержимое ZIP (`dmcr.js` и `dmcr.wasm`), ограничить размер и опасные пути, проверить CRC распакованных файлов.
+- Распаковать данные в собственный каталог приложения без разрешения на доступ ко всем файлам телефона.
+- Подменить страницу управления на нашу встроенную `dmcr.html`, сохранив двигатель и игровые данные оригинального веб-порта.
+- При следующем запуске использовать уже установленные файлы. После обновления APK обновить `dmcr.html` без перескачивания игры.
+- Попытаться продолжить прерванную загрузку (HTTP Range); при неудаче — показать понятную ошибку и кнопку повтора.
+
+**Важно:** исправления в нашем интерфейсе не означают автоматического исправления ошибок движка `dmcr.wasm`. Настоящий системный APK не создан до успешного выполнения сборки GitHub Actions.
+
+## Для разработчиков: собрать APK
+
+Исходники можно смотреть и изменять в GitHub. Для испытаний откройте **Actions → Build Android APK** и скачайте артефакт `CossacksMobile-debug-apk`, в котором будет `app-debug.apk`.
+
+Для прямого скачивания *одного APK без ZIP-обёртки* добавлен отдельный workflow **Publish test APK**: после успешного `git push origin v1.1-test` публикуется тестовый APK в [Releases](https://github.com/toyotaurion-gif/Cossaks-APK/releases). Этот файл предназначен **только для тестирования** и подписывается временным debug-ключом сборочной машины; между новыми сборками обновление поверх старой версии может быть невозможно. Для публичного распространения требуется стабильная релизная подпись и отдельная проверка лицензий.
+
+Код ключевых частей:
+
+| Файл | Назначение |
+|---|---|
+| `app/src/main/java/com/cossacks/mobile/MainActivity.java` | Первый запуск, индикатор установки, ошибки, старт игры |
+| `app/src/main/java/com/cossacks/mobile/GameInstaller.java` | HTTPS, проверка ZIP, распаковка и установка управления |
+| `app/src/main/java/com/cossacks/mobile/GameWebViewClient.java` | Локальная раздача ресурсов для WebView/WebAssembly |
+| `app/src/main/assets/dmcr.html` | Встроенная страница адаптированного управления |
+| `.github/workflows/build-apk.yml` | Сборка тестового APK |
+| `.github/workflows/publish-test-apk.yml` | Выкладка отдельного тестового APK в Releases по git-тегу |
+
+## Авторство и лицензирование
+
+Основа игры и веб-порт: [MisterCoderman/cossacks-1.52-platform](https://github.com/MisterCoderman/cossacks-1.52-platform). Это **отдельный пользовательский Android-клиент**, неофициальное приложение и не утверждённый релиз первоначального правообладателя. Права на игру, изображения, звук, игровые ресурсы и исходный веб-порт остаются у их владельцев. Их нельзя автоматически считать открытыми только потому, что код этого установщика доступен для просмотра.
+
+Разрешение на использование и распространение сторонних ресурсов нужно проверить отдельно. Лицензия для самостоятельного Android-кода приведена в `LICENSE-ANDROID.md` и не относится к чужим игровым материалам или адаптированному `dmcr.html`.

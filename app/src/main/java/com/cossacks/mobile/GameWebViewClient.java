@@ -6,40 +6,49 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.util.Collections;
-import java.util.Map;
 
-/** Serves game files under a proper HTTPS origin without any external server. */
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+
+/** Local offline game files are mapped to one HTTPS origin for WebAssembly / fetch(). */
 final class GameWebViewClient extends WebViewClient {
     static final String HOST = "appassets.androidplatform.net";
     static final String URL = "https://" + HOST + "/dmcr.html";
     private final Context app;
-    private final TreeStore files;
+    private final File game;
 
-    GameWebViewClient(Context c, TreeStore store) { app = c.getApplicationContext(); files = store; }
+    GameWebViewClient(Context context, File folder) {
+        app = context.getApplicationContext();
+        game = folder;
+    }
 
-    @Override
-    public WebResourceResponse shouldInterceptRequest(WebView web, WebResourceRequest req){
-        Uri u=req.getUrl();
-        if (!"https".equalsIgnoreCase(u.getScheme()) || !HOST.equalsIgnoreCase(u.getHost())) return null;
-        String path = u.getPath()==null? "":u.getPath();
-        if(path.startsWith("/")) path=path.substring(1);
-        if(path.isEmpty()) path="dmcr.html";
-        String mime=TreeStore.mimeFor(path);
+    @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+        Uri u = request.getUrl();
+        if (!"https".equalsIgnoreCase(u.getScheme()) || !HOST.equalsIgnoreCase(u.getHost()))
+            return null;
+        String path = u.getPath() == null ? "" : u.getPath();
+        if (path.startsWith("/")) path = path.substring(1);
+        if (path.isEmpty()) path = "dmcr.html";
         try {
-            InputStream in = (path.equals("dmcr.html") || path.equals("index.html"))
-                    ? app.getAssets().open("dmcr.html") : files.read(path);
-            WebResourceResponse response=new WebResourceResponse(mime,
-                    mime.startsWith("text/")||mime.equals("application/json")?"UTF-8":null,in);
-            response.setResponseHeaders(Collections.singletonMap("Cache-Control", "no-cache"));
+            File f = new File(game, path);
+            if (!f.getCanonicalPath().startsWith(game.getCanonicalPath() + File.separator) ||
+                    (!(path.equals("dmcr.html") || path.equals("index.html")) && !f.isFile()))
+                throw new java.io.IOException("Invalid or missing file");
+            InputStream data = (path.equals("dmcr.html") || path.equals("index.html"))
+                    ? app.getAssets().open("dmcr.html") : new FileInputStream(f);
+            String mime = TreeStore.mimeFor(path);
+            WebResourceResponse response = new WebResourceResponse(mime,
+                    mime.startsWith("text/") || mime.equals("application/json") ? "UTF-8" : null, data);
+            response.setResponseHeaders(Collections.singletonMap("Cache-Control", "no-store"));
             return response;
-        } catch (Exception ex) {
-            WebResourceResponse missing=new WebResourceResponse("text/plain","UTF-8",404,
-                    "Not Found", Collections.emptyMap(),
-                    new ByteArrayInputStream(("Missing game file: "+path).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-            return missing;
+        } catch (Exception e) {
+            return new WebResourceResponse("text/plain", "UTF-8", 404, "Not Found",
+                    Collections.emptyMap(),
+                    new ByteArrayInputStream(("Missing game file: " + path).getBytes(StandardCharsets.UTF_8)));
         }
     }
 }
